@@ -1,0 +1,7 @@
+<!-- Add these keys to ios/Runner/Info.plist -->
+
+<key>NSCameraUsageDescription</key>
+<string>Camera is used to scan product barcodes and photograph receipts.</string>
+
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Photo library access lets you upload an existing receipt photo.</string>

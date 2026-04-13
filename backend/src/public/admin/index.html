@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cashback Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3/dist/cdn.min.js" defer></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .stat-card { @apply bg-white rounded-xl p-5 shadow-sm border border-gray-100; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans" x-data="app()" x-init="init()">
+
+<!-- ── Login ── -->
+<div x-show="!token" x-cloak class="min-h-screen flex items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+    <div class="text-center mb-6">
+      <div class="text-4xl mb-2">💰</div>
+      <h1 class="text-2xl font-bold">Admin Login</h1>
+    </div>
+    <form @submit.prevent="login">
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Email</label>
+        <input type="email" x-model="loginForm.email"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+          placeholder="admin@cashback.app" />
+      </div>
+      <div class="mb-6">
+        <label class="block text-sm font-medium mb-1">Password</label>
+        <input type="password" x-model="loginForm.password"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400" />
+      </div>
+      <p x-show="loginError" class="text-red-500 text-sm mb-4" x-text="loginError"></p>
+      <button type="submit"
+        class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg transition">
+        Sign In
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Dashboard ── -->
+<div x-show="token" x-cloak class="min-h-screen">
+
+  <!-- Sidebar -->
+  <div class="fixed inset-y-0 left-0 w-56 bg-white border-r border-gray-100 flex flex-col">
+    <div class="p-5 border-b border-gray-100">
+      <div class="font-bold text-lg text-green-600">💰 CashbackAdmin</div>
+      <div class="text-xs text-gray-400 mt-1" x-text="adminInfo.email"></div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <template x-for="item in nav" :key="item.id">
+        <button @click="page = item.id; loadPage(item.id)"
+          :class="page === item.id ? 'bg-green-50 text-green-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+          class="w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2">
+          <span x-text="item.icon"></span>
+          <span x-text="item.label"></span>
+        </button>
+      </template>
+    </nav>
+    <div class="p-4 border-t">
+      <button @click="logout" class="text-sm text-gray-400 hover:text-red-500">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <main class="ml-56 p-8">
+
+    <!-- ── Analytics ── -->
+    <div x-show="page === 'analytics'">
+      <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
+
+      <!-- Summary cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="stat-card">
+          <div class="text-sm text-gray-400">Total Claims</div>
+          <div class="text-3xl font-bold mt-1" x-text="analytics.summary?.total_claims ?? '—'"></div>
+          <div class="text-xs text-gray-400 mt-1" x-text="`${analytics.summary?.last_24h ?? 0} today`"></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-sm text-gray-400">Cashback Paid</div>
+          <div class="text-3xl font-bold mt-1 text-green-600"
+            x-text="analytics.summary ? '$' + analytics.summary.total_cashback_paid : '—'"></div>
+          <div class="text-xs text-gray-400 mt-1" x-text="`Avg $${analytics.summary?.avg_cashback ?? 0}`"></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-sm text-gray-400">Cost / Acquisition</div>
+          <div class="text-3xl font-bold mt-1" x-text="analytics.summary ? '$' + analytics.summary.cost_per_acquisition : '—'"></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-sm text-gray-400">Active Campaigns</div>
+          <div class="text-3xl font-bold mt-1" x-text="analytics.summary?.active_campaigns ?? '—'"></div>
+        </div>
+      </div>
+
+      <!-- Status breakdown -->
+      <div class="grid grid-cols-4 gap-4 mb-8">
+        <template x-for="[label, key, color] in [['Approved','approved','green'],['Flagged','flagged','yellow'],['Rejected','rejected','red'],['Pending','pending','gray']]">
+          <div class="stat-card text-center">
+            <div class="text-sm text-gray-400" x-text="label"></div>
+            <div class="text-2xl font-bold mt-1"
+              :class="`text-${color}-600`"
+              x-text="analytics.summary?.[key] ?? '—'"></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Top products -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
+        <h3 class="font-semibold mb-4">Top Products by Claims</h3>
+        <table class="w-full text-sm">
+          <thead class="text-left text-gray-400 border-b">
+            <tr>
+              <th class="pb-2">Product</th>
+              <th class="pb-2">Brand</th>
+              <th class="pb-2 text-right">Claims</th>
+              <th class="pb-2 text-right">Total Cashback</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="p in analytics.top_products ?? []" :key="p.barcode">
+              <tr class="border-b last:border-0">
+                <td class="py-2 font-medium" x-text="p.name"></td>
+                <td class="py-2 text-gray-400" x-text="p.brand"></td>
+                <td class="py-2 text-right" x-text="p.claim_count"></td>
+                <td class="py-2 text-right text-green-600" x-text="'$' + Number(p.total_cashback).toFixed(2)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Fraud flags -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="font-semibold mb-4">Fraud Flag Breakdown</h3>
+        <div class="space-y-2">
+          <template x-for="f in analytics.fraud_flags ?? []" :key="f.flag_type">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-600" x-text="f.flag_type.replaceAll('_',' ')"></span>
+              <span class="font-semibold text-red-500" x-text="f.occurrences"></span>
+            </div>
+          </template>
+          <div x-show="!analytics.fraud_flags?.length" class="text-gray-400 text-sm">No fraud flags yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Claims Review ── -->
+    <div x-show="page === 'claims'">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">Claims</h2>
+        <select x-model="claimFilter" @change="loadClaims()"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <option value="">All</option>
+          <option value="flagged">Flagged</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-left text-gray-400">
+            <tr>
+              <th class="px-4 py-3">User</th>
+              <th class="px-4 py-3">Product</th>
+              <th class="px-4 py-3">Store</th>
+              <th class="px-4 py-3 text-right">Cashback</th>
+              <th class="px-4 py-3 text-right">Score</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="c in claims" :key="c.id">
+              <tr class="border-t hover:bg-gray-50">
+                <td class="px-4 py-3 text-xs text-gray-500" x-text="c.user_email"></td>
+                <td class="px-4 py-3 font-medium" x-text="c.product_name"></td>
+                <td class="px-4 py-3 text-gray-400" x-text="c.store_name ?? '—'"></td>
+                <td class="px-4 py-3 text-right text-green-600 font-semibold"
+                  x-text="'$' + Number(c.cashback_amount).toFixed(2)"></td>
+                <td class="px-4 py-3 text-right"
+                  :class="c.fraud_score >= 70 ? 'text-red-500 font-bold' : c.fraud_score >= 30 ? 'text-yellow-500' : 'text-gray-400'"
+                  x-text="c.fraud_score"></td>
+                <td class="px-4 py-3">
+                  <span :class="{
+                    'bg-green-100 text-green-700':  c.status === 'approved',
+                    'bg-red-100 text-red-700':      c.status === 'rejected',
+                    'bg-yellow-100 text-yellow-700':c.status === 'flagged',
+                    'bg-gray-100 text-gray-600':    c.status === 'pending',
+                  }" class="px-2 py-1 rounded-full text-xs font-semibold" x-text="c.status"></span>
+                </td>
+                <td class="px-4 py-3">
+                  <div x-show="c.status === 'flagged'" class="flex gap-2">
+                    <button @click="reviewClaim(c.id, 'approve')"
+                      class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600">Approve</button>
+                    <button @click="reviewClaim(c.id, 'reject')"
+                      class="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Reject</button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Products ── -->
+    <div x-show="page === 'products'">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">Products</h2>
+        <button @click="showNewProduct = !showNewProduct"
+          class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+          + Add Product
+        </button>
+      </div>
+
+      <!-- Add product form -->
+      <div x-show="showNewProduct" class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
+        <h3 class="font-semibold mb-4">New Product</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Image upload -->
+          <div class="col-span-2">
+            <label class="block text-sm font-medium mb-1">Product Image</label>
+            <div @click="$refs.imgInput.click()"
+              class="border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center cursor-pointer hover:border-green-400 transition-colors"
+              style="min-height:100px">
+              <template x-if="productImagePreview">
+                <img :src="productImagePreview" class="h-20 object-contain rounded" />
+              </template>
+              <template x-if="!productImagePreview">
+                <div class="text-center text-gray-400">
+                  <div class="text-3xl mb-1">📷</div>
+                  <div class="text-sm">Click to upload image</div>
+                </div>
+              </template>
+            </div>
+            <input type="file" accept="image/*" x-ref="imgInput" class="hidden"
+              @change="onProductImage($event)" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Product Name *</label>
+            <input x-model="newProduct.name" class="input" placeholder="e.g. Rifai Cafe 250g" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Brand</label>
+            <input x-model="newProduct.brand" class="input" placeholder="e.g. Rifai" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Barcode *</label>
+            <input x-model="newProduct.barcode" class="input" placeholder="e.g. 5281026405559" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Category</label>
+            <select x-model="newProduct.category" class="input">
+              <option value="snacks">Snacks</option>
+              <option value="beverages">Beverages</option>
+              <option value="dairy">Dairy</option>
+              <option value="cosmetics">Cosmetics</option>
+              <option value="personal_care">Personal Care</option>
+              <option value="pantry">Pantry</option>
+              <option value="produce">Produce</option>
+              <option value="household">Household</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Cashback Type</label>
+            <select x-model="newProduct.cashback_type" class="input">
+              <option value="fixed">Fixed ($)</option>
+              <option value="percent">Percent (%)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Cashback Amount *</label>
+            <input x-model="newProduct.cashback_value" type="number" step="0.01" class="input"
+              :placeholder="newProduct.cashback_type === 'fixed' ? '1.00' : '10'" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Max Claims</label>
+            <input x-model="newProduct.max_claims" type="number" class="input" placeholder="1000" />
+          </div>
+        </div>
+        <p x-show="productError" class="text-red-500 text-sm mt-3" x-text="productError"></p>
+        <div class="flex gap-3 mt-4">
+          <button @click="createProduct()"
+            class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">
+            Save Product
+          </button>
+          <button @click="showNewProduct = false; productError = ''"
+            class="text-gray-500 hover:text-gray-700 text-sm px-4 py-2">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Products list -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-left text-gray-400">
+            <tr>
+              <th class="px-4 py-3">Image</th>
+              <th class="px-4 py-3">Product</th>
+              <th class="px-4 py-3">Brand</th>
+              <th class="px-4 py-3">Category</th>
+              <th class="px-4 py-3">Cashback</th>
+              <th class="px-4 py-3">Campaign</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="p in products" :key="p.id">
+              <tr class="border-t hover:bg-gray-50">
+                <td class="px-4 py-3">
+                  <template x-if="p.image_url">
+                    <img :src="p.image_url" class="w-10 h-10 object-contain rounded-lg border border-gray-100" />
+                  </template>
+                  <template x-if="!p.image_url">
+                    <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-300">📦</div>
+                  </template>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="font-medium" x-text="p.name"></div>
+                  <div class="text-xs text-gray-400" x-text="p.barcode"></div>
+                </td>
+                <td class="px-4 py-3 text-gray-500" x-text="p.brand || '—'"></td>
+                <td class="px-4 py-3 capitalize" x-text="p.category || '—'"></td>
+                <td class="px-4 py-3 text-green-600 font-semibold"
+                  x-text="p.cashback_type === 'fixed' ? '$' + Number(p.cashback_value).toFixed(2) : p.cashback_value + '%'"></td>
+                <td class="px-4 py-3">
+                  <span :class="p.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                    class="px-2 py-1 rounded-full text-xs font-semibold"
+                    x-text="p.active ? 'Active' : (p.campaign_name ? 'Inactive' : 'No campaign')"></span>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="products.length === 0">
+              <td colspan="6" class="px-4 py-8 text-center text-gray-400">No products yet. Click + Add Product to get started.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Campaigns ── -->
+    <div x-show="page === 'campaigns'">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">Campaigns</h2>
+        <button @click="showNewCampaign = !showNewCampaign"
+          class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+          + New Campaign
+        </button>
+      </div>
+
+      <!-- New campaign form -->
+      <div x-show="showNewCampaign" class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
+        <h3 class="font-semibold mb-4">Create Campaign</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Product ID</label>
+            <input x-model="newCampaign.product_id" class="input" placeholder="UUID" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Campaign Name</label>
+            <input x-model="newCampaign.name" class="input" placeholder="Summer Launch" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Type</label>
+            <select x-model="newCampaign.cashback_type" class="input">
+              <option value="fixed">Fixed ($)</option>
+              <option value="percent">Percent (%)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Value</label>
+            <input x-model="newCampaign.cashback_value" type="number" step="0.01" class="input" placeholder="1.50" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Starts At</label>
+            <input x-model="newCampaign.starts_at" type="datetime-local" class="input" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Ends At</label>
+            <input x-model="newCampaign.ends_at" type="datetime-local" class="input" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Max Claims (optional)</label>
+            <input x-model="newCampaign.max_claims" type="number" class="input" placeholder="1000" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Max Cashback Cap (% only)</label>
+            <input x-model="newCampaign.max_cashback" type="number" step="0.01" class="input" placeholder="5.00" />
+          </div>
+        </div>
+        <p x-show="campaignError" class="text-red-500 text-sm mt-3" x-text="campaignError"></p>
+        <div class="flex gap-3 mt-4">
+          <button @click="createCampaign()"
+            class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">
+            Create
+          </button>
+          <button @click="showNewCampaign = false"
+            class="text-gray-500 hover:text-gray-700 text-sm px-4 py-2">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Campaigns list -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-left text-gray-400">
+            <tr>
+              <th class="px-4 py-3">Campaign</th>
+              <th class="px-4 py-3">Product</th>
+              <th class="px-4 py-3">Cashback</th>
+              <th class="px-4 py-3">Claims</th>
+              <th class="px-4 py-3">Period</th>
+              <th class="px-4 py-3">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="c in campaigns" :key="c.id">
+              <tr class="border-t hover:bg-gray-50">
+                <td class="px-4 py-3 font-medium" x-text="c.name"></td>
+                <td class="px-4 py-3 text-gray-500" x-text="c.product_name"></td>
+                <td class="px-4 py-3 text-green-600 font-semibold"
+                  x-text="c.cashback_type === 'fixed' ? '$' + c.cashback_value : c.cashback_value + '%'"></td>
+                <td class="px-4 py-3">
+                  <span x-text="c.claim_count"></span>
+                  <span x-show="c.max_claims" class="text-gray-400" x-text="' / ' + c.max_claims"></span>
+                </td>
+                <td class="px-4 py-3 text-xs text-gray-400"
+                  x-text="fmtDate(c.starts_at) + ' → ' + fmtDate(c.ends_at)"></td>
+                <td class="px-4 py-3">
+                  <span :class="c.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                    class="px-2 py-1 rounded-full text-xs font-semibold"
+                    x-text="c.active ? 'Active' : 'Inactive'"></span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── AI Insights ── -->
+    <div x-show="page === 'insights'">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold">AI Insights</h2>
+          <p class="text-gray-400 text-sm mt-1">Rule-based intelligence on your campaign and claims data</p>
+        </div>
+        <button @click="loadInsights()"
+          class="border border-gray-200 hover:border-green-400 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition">
+          ↻ Refresh
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div x-show="insightsLoading" class="text-center py-16 text-gray-400">
+        <div class="text-4xl mb-3">🤖</div>
+        <div>Analysing your data…</div>
+      </div>
+
+      <!-- Insight cards -->
+      <div x-show="!insightsLoading">
+        <div x-show="insights.length === 0" class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
+          <div class="text-4xl mb-3">✅</div>
+          <div class="font-medium">No issues detected</div>
+          <div class="text-sm mt-1">Everything looks healthy. Check back as more data comes in.</div>
+        </div>
+
+        <div class="space-y-3 mb-8">
+          <template x-for="(ins, i) in insights" :key="i">
+            <div class="rounded-xl border p-4 flex items-start gap-4"
+              :class="{
+                'border-green-200 bg-green-50':  ins.type === 'success',
+                'border-yellow-200 bg-yellow-50': ins.type === 'warning',
+                'border-red-200 bg-red-50':       ins.type === 'danger',
+                'border-blue-200 bg-blue-50':     ins.type === 'info',
+              }">
+              <div class="text-2xl mt-0.5" x-text="ins.type === 'success' ? '✅' : ins.type === 'warning' ? '⚠️' : ins.type === 'danger' ? '🚨' : 'ℹ️'"></div>
+              <div class="flex-1">
+                <div class="font-semibold text-sm"
+                  :class="{
+                    'text-green-800':  ins.type === 'success',
+                    'text-yellow-800': ins.type === 'warning',
+                    'text-red-800':    ins.type === 'danger',
+                    'text-blue-800':   ins.type === 'info',
+                  }"
+                  x-text="ins.title"></div>
+                <div class="text-sm mt-0.5"
+                  :class="{
+                    'text-green-700':  ins.type === 'success',
+                    'text-yellow-700': ins.type === 'warning',
+                    'text-red-700':    ins.type === 'danger',
+                    'text-blue-700':   ins.type === 'info',
+                  }"
+                  x-text="ins.detail"></div>
+                <div x-show="ins.action" class="mt-2">
+                  <span class="text-xs font-semibold px-2 py-1 rounded-full"
+                    :class="{
+                      'bg-green-200 text-green-800':  ins.type === 'success',
+                      'bg-yellow-200 text-yellow-800': ins.type === 'warning',
+                      'bg-red-200 text-red-800':       ins.type === 'danger',
+                      'bg-blue-200 text-blue-800':     ins.type === 'info',
+                    }"
+                    x-text="ins.action"></span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Data Monetisation Tiers -->
+        <h3 class="text-lg font-bold mb-4">Data Monetisation</h3>
+        <p class="text-gray-400 text-sm mb-5">Sell anonymised consumer purchase data to brands and retailers through our secure data marketplace.</p>
+        <div class="grid grid-cols-3 gap-4 mb-8">
+          <!-- Starter -->
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <div class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">Starter</div>
+            <div class="text-3xl font-bold mb-1">$299<span class="text-base font-normal text-gray-400">/mo</span></div>
+            <p class="text-sm text-gray-500 mb-4">Perfect for emerging brands looking for category-level insights.</p>
+            <ul class="text-sm text-gray-600 space-y-2 mb-6">
+              <li>✓ Category-level purchase trends</li>
+              <li>✓ Monthly aggregate reports</li>
+              <li>✓ Up to 3 product categories</li>
+              <li>✓ Email delivery</li>
+            </ul>
+            <button class="w-full border border-green-500 text-green-600 hover:bg-green-50 font-semibold py-2 rounded-lg text-sm transition">
+              Get Started
+            </button>
+          </div>
+          <!-- Professional -->
+          <div class="bg-white rounded-xl border-2 border-green-500 shadow-md p-6 relative">
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">POPULAR</div>
+            <div class="text-sm font-semibold text-green-600 uppercase tracking-wide mb-2">Professional</div>
+            <div class="text-3xl font-bold mb-1">$799<span class="text-base font-normal text-gray-400">/mo</span></div>
+            <p class="text-sm text-gray-500 mb-4">Real-time signals and competitive benchmarking for growth teams.</p>
+            <ul class="text-sm text-gray-600 space-y-2 mb-6">
+              <li>✓ Real-time purchase signals</li>
+              <li>✓ Competitor benchmarking</li>
+              <li>✓ Regional breakdowns</li>
+              <li>✓ Weekly reports + API access</li>
+              <li>✓ Up to 15 product categories</li>
+            </ul>
+            <button class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg text-sm transition">
+              Upgrade Now
+            </button>
+          </div>
+          <!-- Enterprise -->
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <div class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">Enterprise</div>
+            <div class="text-3xl font-bold mb-1">Custom</div>
+            <p class="text-sm text-gray-500 mb-4">Full data access, custom models, and dedicated data science support.</p>
+            <ul class="text-sm text-gray-600 space-y-2 mb-6">
+              <li>✓ Full raw data access</li>
+              <li>✓ Custom ML models</li>
+              <li>✓ Dedicated data scientist</li>
+              <li>✓ White-label reporting</li>
+              <li>✓ SLA guarantee</li>
+            </ul>
+            <button class="w-full border border-gray-300 text-gray-600 hover:bg-gray-50 font-semibold py-2 rounded-lg text-sm transition">
+              Contact Sales
+            </button>
+          </div>
+        </div>
+
+        <!-- On-Demand Reports -->
+        <h3 class="text-lg font-bold mb-4">On-Demand Reports</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
+            <div class="text-3xl">📈</div>
+            <div>
+              <div class="font-semibold text-sm">Campaign Performance Deep-Dive</div>
+              <div class="text-xs text-gray-400 mt-1">Full conversion funnel, fraud analysis, and ROI breakdown per campaign.</div>
+              <div class="text-green-600 font-bold text-sm mt-2">$149 / report</div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
+            <div class="text-3xl">🛒</div>
+            <div>
+              <div class="font-semibold text-sm">Consumer Basket Analysis</div>
+              <div class="text-xs text-gray-400 mt-1">Cross-product purchase patterns and basket composition insights.</div>
+              <div class="text-green-600 font-bold text-sm mt-2">$199 / report</div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
+            <div class="text-3xl">📍</div>
+            <div>
+              <div class="font-semibold text-sm">Regional Heatmap Report</div>
+              <div class="text-xs text-gray-400 mt-1">Store-level and city-level purchase density maps for your products.</div>
+              <div class="text-green-600 font-bold text-sm mt-2">$249 / report</div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
+            <div class="text-3xl">🔁</div>
+            <div>
+              <div class="font-semibold text-sm">Retention & Loyalty Report</div>
+              <div class="text-xs text-gray-400 mt-1">Repeat purchase rates, churn risk scoring, and loyalty cohort analysis.</div>
+              <div class="text-green-600 font-bold text-sm mt-2">$179 / report</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function app() {
+  return {
+    token: localStorage.getItem('admin_token'),
+    adminInfo: JSON.parse(localStorage.getItem('admin_info') || '{}'),
+    page: 'analytics',
+    nav: [
+      { id: 'analytics', icon: '📊', label: 'Analytics' },
+      { id: 'claims',    icon: '📋', label: 'Claims' },
+      { id: 'campaigns', icon: '🎯', label: 'Campaigns' },
+      { id: 'products',  icon: '📦', label: 'Products' },
+      { id: 'insights',  icon: '🤖', label: 'AI Insights' },
+    ],
+
+    // State
+    analytics: {},
+    claims: [],
+    campaigns: [],
+    products: [],
+    insights: [],
+    insightsLoading: false,
+    claimFilter: 'flagged',
+    showNewCampaign: false,
+    showNewProduct: false,
+    newCampaign: { cashback_type: 'fixed' },
+    newProduct: { cashback_type: 'fixed', category: 'beverages', max_claims: '1000' },
+    productImageFile: null,
+    productImagePreview: null,
+    loginForm: {},
+    loginError: '',
+    campaignError: '',
+    productError: '',
+
+    async init() {
+      if (this.token) this.loadPage('analytics');
+    },
+
+    async api(method, path, body) {
+      const res = await fetch('/admin' + path, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.token ? { Authorization: 'Bearer ' + this.token } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) { this.logout(); return; }
+      return res.json();
+    },
+
+    async login() {
+      this.loginError = '';
+      const data = await this.api('POST', '/auth/login', this.loginForm);
+      if (data?.token) {
+        this.token     = data.token;
+        this.adminInfo = data.admin;
+        localStorage.setItem('admin_token', data.token);
+        localStorage.setItem('admin_info',  JSON.stringify(data.admin));
+        this.loadPage('analytics');
+      } else {
+        this.loginError = data?.error || 'Login failed';
+      }
+    },
+
+    logout() {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_info');
+      this.token = null;
+    },
+
+    loadPage(id) {
+      this.page = id;
+      if (id === 'analytics') this.loadAnalytics();
+      if (id === 'claims')    this.loadClaims();
+      if (id === 'campaigns') this.loadCampaigns();
+      if (id === 'products')  this.loadProducts();
+      if (id === 'insights')  this.loadInsights();
+    },
+
+    async loadAnalytics() {
+      this.analytics = await this.api('GET', '/analytics') ?? {};
+    },
+
+    async loadClaims() {
+      const qs  = this.claimFilter ? `?status=${this.claimFilter}&limit=100` : '?limit=100';
+      const data = await this.api('GET', '/claims' + qs);
+      this.claims = data?.claims ?? [];
+    },
+
+    async loadCampaigns() {
+      const data = await this.api('GET', '/campaigns');
+      this.campaigns = data?.campaigns ?? [];
+    },
+
+    async loadProducts() {
+      const data = await this.api('GET', '/products');
+      this.products = data?.products ?? [];
+    },
+
+    async loadInsights() {
+      this.insightsLoading = true;
+      const data = await this.api('GET', '/analytics/insights');
+      this.insights = data?.insights ?? [];
+      this.insightsLoading = false;
+    },
+
+    onProductImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      this.productImageFile = file;
+      this.productImagePreview = URL.createObjectURL(file);
+    },
+
+    async createProduct() {
+      this.productError = '';
+      if (!this.newProduct.name || !this.newProduct.barcode || !this.newProduct.cashback_value) {
+        this.productError = 'Name, barcode and cashback are required.';
+        return;
+      }
+      const fd = new FormData();
+      Object.entries(this.newProduct).forEach(([k, v]) => fd.append(k, v));
+      if (this.productImageFile) fd.append('image', this.productImageFile);
+
+      const res = await fetch('/admin/products', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + this.token },
+        body: fd,
+      });
+      const data = await res.json();
+      if (data?.product) {
+        this.showNewProduct = false;
+        this.newProduct = { cashback_type: 'fixed', category: 'beverages', max_claims: '1000' };
+        this.productImageFile = null;
+        this.productImagePreview = null;
+        await this.loadProducts();
+      } else {
+        this.productError = data?.error || 'Failed to create product';
+      }
+    },
+
+    async reviewClaim(id, action) {
+      await this.api('POST', `/claims/${id}/${action}`, { reason: 'Manual review' });
+      await this.loadClaims();
+    },
+
+    async createCampaign() {
+      this.campaignError = '';
+      const data = await this.api('POST', '/campaigns', this.newCampaign);
+      if (data?.campaign) {
+        this.showNewCampaign = false;
+        this.newCampaign = { cashback_type: 'fixed' };
+        await this.loadCampaigns();
+      } else {
+        this.campaignError = data?.error || 'Failed to create campaign';
+      }
+    },
+
+    fmtDate(iso) {
+      return iso ? new Date(iso).toLocaleDateString() : '—';
+    },
+  };
+}
+</script>
+
+<style>
+.input {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+.input:focus { border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.2); }
+</style>
+</body>
+</html>

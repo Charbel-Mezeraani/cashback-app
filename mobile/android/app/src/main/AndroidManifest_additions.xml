@@ -1,0 +1,9 @@
+<!-- Add these permissions inside <manifest> in your AndroidManifest.xml -->
+
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+    android:maxSdkVersion="32" />
+
+<!-- Required for mobile_scanner -->
+<uses-feature android:name="android.hardware.camera" android:required="false" />
