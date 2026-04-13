@@ -1,52 +1,88 @@
-# 💰 Cashback App
+<div align="center">
 
-A full-stack cashback rewards platform that lets users scan product barcodes in-store, submit receipts, and earn cashback directly to their in-app wallet.
+# Cashback App
+
+**A full-stack cashback rewards platform — scan, claim, earn.**
+
+[![Flutter](https://img.shields.io/badge/Flutter-3.10+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Railway](https://img.shields.io/badge/Deployed_on-Railway-0B0D0E?logo=railway&logoColor=white)](https://railway.app)
+
+</div>
 
 ---
 
-## Overview
+## What It Does
 
-| Layer | Technology | Hosting |
-|-------|-----------|---------|
-| Mobile | Flutter (Android & iOS) | APK / App Store |
-| Backend API | Node.js + Express | Railway |
-| Database | PostgreSQL | Railway |
-| Admin Dashboard | HTML/Alpine.js + Next.js | Railway |
+Users install the mobile app, scan a product barcode in-store, photograph their receipt, and receive cashback directly to their in-app wallet. Brands run targeted campaigns to drive purchase behaviour. An admin dashboard gives operators full visibility and control.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────┐        HTTPS         ┌──────────────────────────┐
+│   Flutter Mobile    │ ──────────────────▶  │   Node.js / Express API  │
+│  Android · iOS      │                       │      Railway             │
+└─────────────────────┘                       └────────────┬─────────────┘
+                                                           │
+                                              ┌────────────▼─────────────┐
+                                              │  PostgreSQL Database      │
+                                              │      Railway             │
+                                              └──────────────────────────┘
+                                                           │
+                                              ┌────────────▼─────────────┐
+                                              │   Admin Dashboard         │
+                                              │  Alpine.js · Next.js     │
+                                              └──────────────────────────┘
+```
+
+| Layer | Stack | Hosting |
+|---|---|---|
+| Mobile | Flutter 3, Riverpod, GoRouter, MobileScanner | APK / App Store |
+| API | Node.js, Express, JWT, PostgreSQL | Railway |
+| Admin (static) | Alpine.js, Tailwind CSS | Railway (served by API) |
+| Admin (advanced) | Next.js 16, TypeScript, Recharts | Railway |
+| Database | PostgreSQL 14 | Railway Managed |
 
 ---
 
 ## Features
 
-### Mobile App (Flutter)
-- **Barcode Scanner** — scan any product barcode to check active cashback offers
-- **Receipt Submission** — photo receipt upload with fraud scoring
-- **Wallet** — real-time cashback balance, transaction history, payout requests
-- **Claim History** — track approved, pending, and rejected claims
-- **Onboarding** — smooth first-launch flow with auth
-- **Secure Auth** — JWT access tokens + refresh tokens stored in secure storage
+### Mobile App
 
-### Backend API (Node.js / Express)
-- RESTful API with JWT authentication and rate limiting
-- Rule-based fraud detection on every receipt submission
-- Receipt OCR pipeline with image upload (Multer + S3-compatible storage)
-- Real-time wallet transaction management
-- Push notification support
-- Admin-only analytics, campaign management, and claims review endpoints
-- Structured logging via Winston with daily log rotation
-- Helmet security headers + CORS
+- **Barcode scanner** — instant product lookup and cashback eligibility check
+- **Receipt submission** — photo upload with server-side fraud scoring
+- **In-app wallet** — real-time balance, transaction ledger, payout requests
+- **Claim history** — full audit trail with status tracking
+- **Secure authentication** — JWT access + refresh tokens in encrypted storage
+- **Smooth onboarding** — first-launch flow with profile setup
+
+### Backend API
+
+- RESTful architecture with versioned routes
+- **Fraud detection engine** — scores every receipt submission automatically
+- **Image pipeline** — Multer upload → Sharp processing → S3 storage
+- **Rate limiting** — per-IP and per-user limits via Redis
+- **Request tracing** — UUID per request, structured Winston logging, daily rotation
+- **Security** — Helmet CSP headers, CORS whitelist, bcrypt password hashing
+- Background job queue with Bull for async receipt processing
 
 ### Admin Dashboard
-- Live analytics: claims, cashback paid, cost per acquisition, active campaigns
-- Claims review queue with one-click approve/reject
-- Product management with image upload and automatic campaign creation
-- Campaign creation and management
-- **AI Insights** — rule-based intelligence engine that detects:
-  - Low-conversion campaigns
-  - Weekend purchase pattern peaks
-  - Retention rate drops
-  - Week-over-week growth/decline alerts
+
+- Live KPIs: total claims, cashback paid, cost per acquisition, active campaigns
+- Claims review queue — approve or reject flagged submissions in one click
+- Product management — add products with image upload, auto-creates campaign
+- Campaign builder — fixed or percentage cashback, date ranges, claim caps
+- **AI Insights engine** — rule-based intelligence that surfaces:
+  - Low-conversion campaign warnings
+  - Weekend purchase pattern detection
+  - Retention rate drops below threshold
+  - Week-over-week growth and decline alerts
   - Fraud flag rate spikes
-- Data monetisation tiers and on-demand report catalogue
+- **Data monetisation catalogue** — tiered pricing for anonymised purchase data (Starter $299/mo · Professional $799/mo · Enterprise custom)
+- On-demand report marketplace
 
 ---
 
@@ -54,28 +90,48 @@ A full-stack cashback rewards platform that lets users scan product barcodes in-
 
 ```
 cashback-app/
-├── mobile/              # Flutter app
+│
+├── mobile/                        # Flutter application
 │   └── lib/
-│       ├── core/        # API client, auth, config
-│       ├── features/    # auth, scan, claim, wallet, home, history, account
-│       └── shared/      # widgets, theme
+│       ├── core/                  # API client, auth state, config
+│       ├── features/
+│       │   ├── auth/              # Login, register, onboarding
+│       │   ├── scan/              # Barcode scanner screen
+│       │   ├── claim/             # Receipt upload & claim flow
+│       │   ├── wallet/            # Balance, transactions, payouts
+│       │   ├── history/           # Claim history
+│       │   ├── home/              # Dashboard feed
+│       │   └── account/           # Profile settings
+│       └── shared/                # Reusable widgets, theme
 │
-├── backend/             # Node.js/Express API
+├── backend/                       # Node.js / Express API
+│   ├── migrations/                # Versioned SQL migrations (010 files)
 │   └── src/
-│       ├── config/      # DB, logger, S3
-│       ├── middleware/  # auth, adminAuth, rateLimit, requestLogger, validate
-│       ├── routes/      # auth, products, receipts, claims, wallet, notifications
-│       │   └── admin/   # analytics, campaigns, claims, products, auth
-│       └── public/
-│           └── admin/   # Static admin dashboard (Alpine.js)
+│       ├── config/                # Database, logger, S3 clients
+│       ├── middleware/            # auth, adminAuth, rateLimit, validate, logger
+│       ├── routes/
+│       │   ├── auth.js            # Register, login, refresh, me
+│       │   ├── products.js        # Barcode lookup, active campaigns
+│       │   ├── receipts.js        # Receipt submission & OCR pipeline
+│       │   ├── claims.js          # Claim status & history
+│       │   ├── wallet.js          # Balance, transactions, payouts
+│       │   ├── notifications.js   # Push notifications
+│       │   └── admin/
+│       │       ├── analytics.js   # Dashboard KPIs + AI insights
+│       │       ├── campaigns.js   # Campaign CRUD
+│       │       ├── claims.js      # Claims review queue
+│       │       ├── products.js    # Product management
+│       │       └── auth.js        # Admin authentication
+│       ├── jobs/                  # Bull queue workers
+│       └── public/admin/          # Static admin dashboard
 │
-└── admin/               # Next.js admin dashboard (advanced analytics)
+└── admin/                         # Next.js advanced analytics
     └── app/
-        ├── page.tsx         # Overview with charts
-        ├── campaigns/       # Campaign performance
-        ├── products/        # Product management
-        ├── users/           # User segments
-        └── insights/        # AI Insights + data monetisation
+        ├── page.tsx               # Overview — KPIs, charts, heatmap
+        ├── campaigns/             # Campaign performance table
+        ├── products/              # Product management + image upload
+        ├── users/                 # User segments
+        └── insights/              # AI insights + data monetisation
 ```
 
 ---
@@ -83,110 +139,138 @@ cashback-app/
 ## Getting Started
 
 ### Prerequisites
+
 - Flutter SDK ≥ 3.10
 - Node.js ≥ 18
 - PostgreSQL 14+
+- Redis (for rate limiting and job queue)
 
 ### Backend
 
 ```bash
 cd backend
-cp .env.example .env          # fill in DATABASE_URL, JWT_SECRET, etc.
+cp .env.example .env      # fill in the variables below
 npm install
-npm run migrate               # run DB migrations
-npm run dev                   # starts on port 3000
+npm run migrate           # applies all SQL migrations
+npm run dev               # http://localhost:3000
 ```
 
-**Environment variables:**
+**Required environment variables:**
 
 | Variable | Description |
-|----------|-------------|
+|---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Secret for signing access tokens |
-| `JWT_REFRESH_SECRET` | Secret for refresh tokens |
-| `CORS_ORIGINS` | Comma-separated allowed origins |
-| `AWS_*` / `S3_*` | S3-compatible storage for receipt images |
+| `JWT_SECRET` | Secret key for access tokens |
+| `JWT_REFRESH_SECRET` | Secret key for refresh tokens |
+| `REDIS_URL` | Redis connection string |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins |
+| `AWS_ACCESS_KEY_ID` | S3-compatible storage key |
+| `AWS_SECRET_ACCESS_KEY` | S3-compatible storage secret |
+| `S3_BUCKET` | Bucket name for receipt images |
+| `S3_ENDPOINT` | S3 endpoint URL |
 
 ### Mobile App
 
 ```bash
 cd mobile
 flutter pub get
-flutter run                   # requires a connected device or emulator
+flutter run               # requires connected device or running emulator
 ```
 
-Update `lib/core/api/api_client.dart` with your backend URL before building.
+Update `lib/core/api/api_client.dart` with your backend base URL before building for production.
 
-### Admin Dashboard (static)
+### Static Admin Dashboard
 
-Served automatically at `/admin` by the backend. No separate setup needed.
+Automatically served at `/admin` by the backend — no separate setup required.
 
-### Admin Dashboard (Next.js)
+### Next.js Admin Dashboard
 
 ```bash
 cd admin
 npm install
-npm run dev                   # starts on port 3001
+npm run dev               # http://localhost:3001
 ```
 
-Set `NEXT_PUBLIC_API_URL` to your backend URL.
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Backend base URL |
+| `NEXT_PUBLIC_ADMIN_KEY` | Admin API key |
 
 ---
 
-## API Overview
+## API Reference
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/auth/register` | Register new user |
-| `POST` | `/auth/login` | Login, returns JWT pair |
-| `POST` | `/auth/refresh` | Refresh access token |
+### User Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/auth/register` | Create account |
+| `POST` | `/auth/login` | Authenticate, receive JWT pair |
+| `POST` | `/auth/refresh` | Rotate access token |
+| `GET` | `/auth/me` | Current user profile |
 | `GET` | `/products/:barcode` | Lookup product + active campaign |
-| `GET` | `/products/campaigns/active` | All active cashback campaigns |
+| `GET` | `/products/campaigns/active` | All live cashback offers |
 | `POST` | `/receipts` | Submit receipt for a claim |
 | `GET` | `/claims` | User's claim history |
-| `GET` | `/wallet` | Wallet balance + transactions |
-| `POST` | `/wallet/payout` | Request a payout |
+| `GET` | `/wallet` | Balance and transactions |
+| `POST` | `/wallet/payout` | Request cashback payout |
 | `GET` | `/notifications` | User notifications |
 
-**Admin endpoints** (`/admin/*`) require an admin JWT:
+### Admin Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/admin/auth/login` | Admin login |
-| `GET` | `/admin/analytics` | Dashboard summary |
-| `GET` | `/admin/analytics/insights` | AI-generated insights |
-| `GET` | `/admin/claims` | All claims with filters |
+> All `/admin/*` routes require a valid admin JWT (`Authorization: Bearer <token>`).
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/admin/auth/login` | Admin authentication |
+| `GET` | `/admin/analytics` | Full dashboard summary |
+| `GET` | `/admin/analytics/insights` | AI-generated business insights |
+| `GET` | `/admin/claims` | Paginated claims with filters |
 | `POST` | `/admin/claims/:id/approve` | Approve a flagged claim |
 | `POST` | `/admin/claims/:id/reject` | Reject a claim |
-| `GET` | `/admin/campaigns` | List campaigns |
-| `POST` | `/admin/campaigns` | Create campaign |
-| `GET` | `/admin/products` | List products |
-| `POST` | `/admin/products` | Create product + campaign |
+| `GET` | `/admin/campaigns` | List all campaigns |
+| `POST` | `/admin/campaigns` | Create a new campaign |
+| `GET` | `/admin/products` | List all products |
+| `POST` | `/admin/products` | Create product + campaign (multipart) |
 
 ---
 
 ## Deployment
 
-The app is deployed on [Railway](https://railway.app):
+Deployed on [Railway](https://railway.app) with two services and a managed database:
 
-- **`fearless-freedom`** — Backend API + static admin dashboard
-- **`accurate-empathy`** — Next.js advanced admin dashboard
-- **Postgres** — Managed PostgreSQL instance
+| Service | Description |
+|---|---|
+| `fearless-freedom` | Backend API + static admin dashboard |
+| `accurate-empathy` | Next.js advanced analytics |
+| `Postgres` | Managed PostgreSQL instance |
 
-Deployments are triggered via `railway up` from the respective directories.
+Continuous deployment via `railway up` from each service directory.
 
 ---
 
 ## Tech Stack
 
-**Mobile:** Flutter · Riverpod · GoRouter · Dio · MobileScanner · flutter_secure_storage
+**Mobile**
+Flutter · Dart · Riverpod · GoRouter · Dio · MobileScanner · flutter_secure_storage · Shimmer · Cached Network Image
 
-**Backend:** Node.js · Express · PostgreSQL · JWT · Multer · Winston · Helmet · Bull · Redis · Sharp · AWS S3
+**Backend**
+Node.js · Express · PostgreSQL · JWT · Multer · Sharp · AWS S3 SDK · Bull · Redis · Winston · Helmet · bcryptjs · UUID
 
-**Admin:** Alpine.js · Tailwind CSS · Next.js 16 · Recharts · TypeScript
+**Admin**
+Alpine.js · Tailwind CSS · Next.js 16 · TypeScript · Recharts · date-fns · Axios
+
+**Infrastructure**
+Railway · Docker · Nixpacks · PostgreSQL 14
+
+---
+
+## Screenshots
+
+> Coming soon — mobile app walkthrough, admin dashboard, AI insights panel.
 
 ---
 
 ## License
 
-Private — all rights reserved.
+Private — all rights reserved © 2026
